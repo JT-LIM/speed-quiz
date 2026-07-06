@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>정보 스피드퀴즈</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ================= 대시보드 화면 ================= -->
+  <section id="screen-dashboard" class="screen">
+    <header class="dashboard-header">
+      <h1>💻 정보 스피드퀴즈</h1>
+      <div class="settings">
+        <label for="timer-input">라운드 시간(초)</label>
+        <input type="number" id="timer-input" min="10" max="600" step="5" value="60">
+        <button id="btn-reset-all" class="btn btn-ghost">전체 초기화</button>
+        <button id="btn-show-result" class="btn btn-primary">🏆 전체 순위</button>
+      </div>
+    </header>
+
+    <div id="team-grid" class="team-grid"></div>
+  </section>
+
+  <!-- ================= 플레이 화면 ================= -->
+  <section id="screen-play" class="screen hidden">
+    <div class="play-topbar">
+      <button id="btn-back" class="btn btn-ghost">← 대시보드</button>
+      <div id="play-team-badge" class="team-badge"></div>
+      <div class="play-stats">
+        <span>남은 단어 <b id="stat-remaining">0</b></span>
+        <span>이번 라운드 정답 <b id="stat-correct">0</b></span>
+      </div>
+    </div>
+
+    <div id="timer-display" class="timer-display">60</div>
+
+    <div id="word-card" class="word-card">단어</div>
+
+    <div class="play-controls">
+      <button id="btn-pass" class="btn btn-pass">⏭ 패스 (P)</button>
+      <button id="btn-correct" class="btn btn-correct">✅ 정답 (Space)</button>
+    </div>
+
+    <div id="start-overlay" class="overlay hidden">
+      <div class="overlay-box">
+        <h2 id="start-overlay-title">1팀 준비!</h2>
+        <p id="start-overlay-desc">남은 단어 20개 · 제한시간 60초</p>
+        <button id="btn-start-round" class="btn btn-primary btn-lg">라운드 시작</button>
+      </div>
+    </div>
+
+    <div id="end-overlay" class="overlay hidden">
+      <div class="overlay-box">
+        <h2>⏰ 라운드 종료!</h2>
+        <p id="end-overlay-desc"></p>
+        <button id="btn-end-confirm" class="btn btn-primary btn-lg">대시보드로</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 결과 화면 ================= -->
+  <section id="screen-result" class="screen hidden">
+    <h1>🏆 전체 순위</h1>
+    <div id="result-list" class="result-list"></div>
+    <button id="btn-result-back" class="btn btn-ghost btn-lg">← 대시보드</button>
+  </section>
+
+</div>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
