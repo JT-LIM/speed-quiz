@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>정보 스피드퀴즈</title>
+<title>정보 1학기 복습 스피드 퀴즈</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
@@ -15,14 +15,18 @@
   <!-- ================= 대시보드 화면 ================= -->
   <section id="screen-dashboard" class="screen">
     <header class="dashboard-header">
-      <h1>💻 정보 스피드퀴즈</h1>
+      <h1>💻 정보 1학기 복습 스피드 퀴즈</h1>
       <div class="settings">
+        <label for="team-count-input">조 개수</label>
+        <input type="number" id="team-count-input" min="1" max="10" step="1" value="5">
         <label for="timer-input">라운드 시간(초)</label>
         <input type="number" id="timer-input" min="10" max="600" step="5" value="60">
         <button id="btn-reset-all" class="btn btn-ghost">전체 초기화</button>
         <button id="btn-show-result" class="btn btn-primary">🏆 전체 순위</button>
       </div>
     </header>
+
+    <div id="pool-status" class="pool-status">남은 단어 <b id="pool-remaining">0</b>개</div>
 
     <div id="team-grid" class="team-grid"></div>
   </section>
@@ -33,7 +37,7 @@
       <button id="btn-back" class="btn btn-ghost">← 대시보드</button>
       <div id="play-team-badge" class="team-badge"></div>
       <div class="play-stats">
-        <span>남은 단어 <b id="stat-remaining">0</b></span>
+        <span>남은 단어 풀 <b id="stat-remaining">0</b></span>
         <span>이번 라운드 정답 <b id="stat-correct">0</b></span>
       </div>
     </div>
@@ -49,8 +53,8 @@
 
     <div id="start-overlay" class="overlay hidden">
       <div class="overlay-box">
-        <h2 id="start-overlay-title">1팀 준비!</h2>
-        <p id="start-overlay-desc">남은 단어 20개 · 제한시간 60초</p>
+        <h2 id="start-overlay-title">1조 준비!</h2>
+        <p id="start-overlay-desc">남은 단어 풀 000개 · 제한시간 60초</p>
         <button id="btn-start-round" class="btn btn-primary btn-lg">라운드 시작</button>
       </div>
     </div>

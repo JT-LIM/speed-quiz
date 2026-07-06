@@ -72,3 +72,18 @@ const TEAMS = [
     ]
   }
 ];
+
+// 전체 팀이 작성한 단어를 하나의 공용 출제 풀로 합치고 중복 제거
+const ALL_WORDS = (() => {
+  const seen = new Set();
+  const words = [];
+  TEAMS.forEach(t => {
+    t.words.forEach(w => {
+      if (!seen.has(w)) {
+        seen.add(w);
+        words.push(w);
+      }
+    });
+  });
+  return words;
+})();
