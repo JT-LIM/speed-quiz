@@ -1,5 +1,5 @@
 // ===================== 상태 관리 =====================
-const STORAGE_KEY = "speedquiz_state_v2";
+const STORAGE_KEY = "speedquiz_state_v3";
 const TEAM_COLORS = ["#e63946", "#f3722c", "#f9c74f", "#90be6d", "#43aa8b", "#577590", "#9c6ade", "#4d908e", "#f8961e", "#277da1"];
 
 function shuffle(arr) {
@@ -11,15 +11,21 @@ function shuffle(arr) {
   return a;
 }
 
+// 전체 단어를 랜덤으로 섞은 뒤 팀 수만큼 고르게(라운드로빈) 나눠 배분
+function assignWordsToTeams(teamCount) {
+  const shuffled = shuffle(ALL_WORDS);
+  const buckets = Array.from({ length: teamCount }, () => []);
+  shuffled.forEach((word, idx) => buckets[idx % teamCount].push(word));
+  return buckets;
+}
+
 function freshState(teamCount, timerSeconds) {
+  const buckets = assignWordsToTeams(teamCount);
   const teams = {};
-  for (let i = 1; i <= teamCount; i++) teams[i] = { score: 0 };
-  return {
-    timerSeconds: timerSeconds || 60,
-    teamCount,
-    pool: shuffle(ALL_WORDS),
-    teams
-  };
+  for (let i = 1; i <= teamCount; i++) {
+    teams[i] = { remaining: buckets[i - 1], total: buckets[i - 1].length, score: 0 };
+  }
+  return { timerSeconds: timerSeconds || 60, teamCount, teams };
 }
 
 function loadState() {
@@ -27,7 +33,7 @@ function loadState() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return freshState(5, 60);
     const parsed = JSON.parse(raw);
-    if (!parsed.teamCount || !parsed.pool || !parsed.teams) return freshState(5, 60);
+    if (!parsed.teamCount || !parsed.teams) return freshState(5, 60);
     return parsed;
   } catch (e) {
     return freshState(5, 60);
@@ -56,7 +62,6 @@ function showScreen(name) {
 const teamGrid = document.getElementById("team-grid");
 const timerInput = document.getElementById("timer-input");
 const teamCountInput = document.getElementById("team-count-input");
-const poolRemainingEl = document.getElementById("pool-remaining");
 
 timerInput.value = state.timerSeconds;
 teamCountInput.value = state.teamCount;
@@ -76,7 +81,7 @@ teamCountInput.addEventListener("change", () => {
   if (v > 10) v = 10;
   teamCountInput.value = v;
   if (v === state.teamCount) return;
-  if (!confirm(`조 개수를 ${v}개로 바꾸면 지금까지의 점수와 출제 단어 풀이 모두 초기화됩니다. 계속할까요?`)) {
+  if (!confirm(`조 개수를 ${v}개로 바꾸면 지금까지의 점수와 단어 배분이 모두 초기화됩니다. 계속할까요?`)) {
     teamCountInput.value = state.teamCount;
     return;
   }
@@ -86,19 +91,24 @@ teamCountInput.addEventListener("change", () => {
 });
 
 function renderDashboard() {
-  poolRemainingEl.textContent = state.pool.length;
   teamGrid.innerHTML = "";
   for (let i = 1; i <= state.teamCount; i++) {
-    const score = state.teams[i].score;
+    const ts = state.teams[i];
+    const done = ts.remaining.length === 0;
+    const playedAny = ts.remaining.length < ts.total;
     const color = TEAM_COLORS[(i - 1) % TEAM_COLORS.length];
+
+    let btnLabel = "시작";
+    if (done) btnLabel = "🔁 다시하기";
+    else if (playedAny) btnLabel = "이어하기";
+
     const card = document.createElement("div");
     card.className = "team-card";
     card.style.setProperty("--card-color", color);
     card.innerHTML = `
       <div class="team-name">${i}조</div>
-      <div class="team-score">${score}<span> 점</span></div>
-      <div class="team-progress">누적 점수 (여러 라운드 합산)</div>
-      <button class="btn btn-primary" data-team="${i}">이번 라운드 시작</button>
+      <div class="team-score">${ts.score}<span> 점</span></div>
+      <button class="btn ${done ? "btn-ghost" : "btn-primary"}" data-team="${i}" data-action="${done ? "restart" : "play"}">${btnLabel}</button>
     `;
     teamGrid.appendChild(card);
   }
@@ -107,11 +117,22 @@ function renderDashboard() {
 teamGrid.addEventListener("click", e => {
   const btn = e.target.closest("button[data-team]");
   if (!btn) return;
-  openPlay(parseInt(btn.dataset.team, 10));
+  const teamId = parseInt(btn.dataset.team, 10);
+  if (btn.dataset.action === "restart") {
+    if (!confirm(`${teamId}조의 점수와 단어를 초기화하고 새로 섞어서 다시 시작할까요?`)) return;
+    const fresh = freshState(state.teamCount, state.timerSeconds);
+    state.teams[teamId].remaining = fresh.teams[teamId].remaining;
+    state.teams[teamId].total = fresh.teams[teamId].total;
+    state.teams[teamId].score = 0;
+    saveState();
+    renderDashboard();
+    return;
+  }
+  openPlay(teamId);
 });
 
 document.getElementById("btn-reset-all").addEventListener("click", () => {
-  if (!confirm("모든 조의 점수와 출제 단어 풀을 초기화할까요?")) return;
+  if (!confirm("모든 조의 점수와 단어 배분을 초기화할까요?")) return;
   state = freshState(state.teamCount, state.timerSeconds);
   saveState();
   renderDashboard();
@@ -146,7 +167,6 @@ function renderResult() {
 
 // ===================== 플레이 화면 =====================
 const playTeamBadge = document.getElementById("play-team-badge");
-const statRemaining = document.getElementById("stat-remaining");
 const statCorrect = document.getElementById("stat-correct");
 const timerDisplay = document.getElementById("timer-display");
 const wordCard = document.getElementById("word-card");
@@ -156,6 +176,7 @@ const btnCorrect = document.getElementById("btn-correct");
 const btnPass = document.getElementById("btn-pass");
 
 let currentTeamId = null;
+let roundQueue = [];
 let roundCorrect = 0;
 let timeLeft = 0;
 let timerHandle = null;
@@ -164,6 +185,7 @@ let roundRunning = false;
 function openPlay(teamId) {
   currentTeamId = teamId;
   const color = TEAM_COLORS[(teamId - 1) % TEAM_COLORS.length];
+  const ts = state.teams[teamId];
 
   playTeamBadge.textContent = `${teamId}조`;
   playTeamBadge.style.setProperty("--badge-color", color);
@@ -171,12 +193,10 @@ function openPlay(teamId) {
   timerDisplay.textContent = state.timerSeconds;
   roundCorrect = 0;
   statCorrect.textContent = "0";
-  statRemaining.textContent = state.pool.length;
-  wordCard.textContent = state.pool[0] || "🎉 출제 단어 소진!";
+  wordCard.textContent = ts.remaining[0] || "🎉 완료!";
 
   document.getElementById("start-overlay-title").textContent = `${teamId}조 준비!`;
-  document.getElementById("start-overlay-desc").textContent =
-    `남은 단어 풀 ${state.pool.length}개 · 제한시간 ${state.timerSeconds}초`;
+  document.getElementById("start-overlay-desc").textContent = `제한시간 ${state.timerSeconds}초`;
 
   endOverlay.classList.add("hidden");
   startOverlay.classList.remove("hidden");
@@ -194,10 +214,12 @@ document.getElementById("btn-back").addEventListener("click", () => {
 document.getElementById("btn-start-round").addEventListener("click", startRound);
 
 function startRound() {
-  if (state.pool.length === 0) {
-    endRound("출제할 단어가 모두 소진되었습니다! 전체 초기화 후 다시 진행해주세요.");
+  const ts = state.teams[currentTeamId];
+  if (ts.remaining.length === 0) {
+    endRound("모든 단어를 이미 맞췄어요! 대시보드에서 다시하기를 눌러주세요.");
     return;
   }
+  roundQueue = ts.remaining.slice();
   roundCorrect = 0;
   statCorrect.textContent = "0";
   timeLeft = state.timerSeconds;
@@ -218,8 +240,7 @@ function startRound() {
 }
 
 function updateWordCard() {
-  wordCard.textContent = state.pool[0] || "🎉 출제 단어 소진!";
-  statRemaining.textContent = state.pool.length;
+  wordCard.textContent = roundQueue[0] || "🎉 완료!";
 }
 
 function stopTimer() {
@@ -229,26 +250,28 @@ function stopTimer() {
 }
 
 function markCorrect() {
-  if (!roundRunning || state.pool.length === 0) return;
-  state.pool.shift();
-  state.teams[currentTeamId].score += 1;
+  if (!roundRunning || roundQueue.length === 0) return;
+  const word = roundQueue.shift();
+  const ts = state.teams[currentTeamId];
+  const idx = ts.remaining.indexOf(word);
+  if (idx !== -1) ts.remaining.splice(idx, 1);
+  ts.score += 1;
   roundCorrect += 1;
   statCorrect.textContent = roundCorrect;
   saveState();
 
-  if (state.pool.length === 0) {
+  if (roundQueue.length === 0) {
     stopTimer();
-    endRound(`🎉 출제 단어를 모두 소진했습니다! 이번 라운드 정답: ${roundCorrect}개`);
+    endRound(`🎉 남은 단어를 모두 맞췄습니다! 이번 라운드 정답: ${roundCorrect}개`);
     return;
   }
   updateWordCard();
 }
 
 function markPass() {
-  if (!roundRunning || state.pool.length <= 1) return;
-  const word = state.pool.shift();
-  state.pool.push(word);
-  saveState();
+  if (!roundRunning || roundQueue.length <= 1) return;
+  const word = roundQueue.shift();
+  roundQueue.push(word);
   updateWordCard();
 }
 
