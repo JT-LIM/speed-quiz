@@ -219,7 +219,7 @@ function startRound() {
     endRound("모든 단어를 이미 맞췄어요! 대시보드에서 다시하기를 눌러주세요.");
     return;
   }
-  roundQueue = ts.remaining.slice();
+  roundQueue = shuffle(ts.remaining);
   roundCorrect = 0;
   statCorrect.textContent = "0";
   timeLeft = state.timerSeconds;
