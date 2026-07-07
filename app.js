@@ -1,5 +1,5 @@
 // ===================== 상태 관리 =====================
-const STORAGE_KEY = "speedquiz_state_v3";
+const STORAGE_KEY = "speedquiz_state_v4";
 const TEAM_COLORS = ["#e63946", "#f3722c", "#f9c74f", "#90be6d", "#43aa8b", "#577590", "#9c6ade", "#4d908e", "#f8961e", "#277da1"];
 
 function shuffle(arr) {
@@ -19,11 +19,13 @@ function assignWordsToTeams(teamCount) {
   return buckets;
 }
 
+// 팀별로 배정된 단어(original)는 전체 초기화 전까지 절대 바뀌지 않음 -> 팀 간 중복 없이 끝까지 진행 가능
 function freshState(teamCount, timerSeconds) {
   const buckets = assignWordsToTeams(teamCount);
   const teams = {};
   for (let i = 1; i <= teamCount; i++) {
-    teams[i] = { remaining: buckets[i - 1], total: buckets[i - 1].length, score: 0 };
+    const bucket = buckets[i - 1];
+    teams[i] = { original: bucket.slice(), remaining: bucket.slice(), total: bucket.length, score: 0 };
   }
   return { timerSeconds: timerSeconds || 60, teamCount, teams };
 }
@@ -119,11 +121,11 @@ teamGrid.addEventListener("click", e => {
   if (!btn) return;
   const teamId = parseInt(btn.dataset.team, 10);
   if (btn.dataset.action === "restart") {
-    if (!confirm(`${teamId}조의 점수와 단어를 초기화하고 새로 섞어서 다시 시작할까요?`)) return;
-    const fresh = freshState(state.teamCount, state.timerSeconds);
-    state.teams[teamId].remaining = fresh.teams[teamId].remaining;
-    state.teams[teamId].total = fresh.teams[teamId].total;
-    state.teams[teamId].score = 0;
+    if (!confirm(`${teamId}조의 점수를 초기화하고 원래 배정된 단어를 다시 섞어서 시작할까요?`)) return;
+    // 그 조에게 처음 배정된 단어(original)만 다시 섞음 -> 다른 조와 절대 겹치지 않음
+    const ts = state.teams[teamId];
+    ts.remaining = shuffle(ts.original);
+    ts.score = 0;
     saveState();
     renderDashboard();
     return;
